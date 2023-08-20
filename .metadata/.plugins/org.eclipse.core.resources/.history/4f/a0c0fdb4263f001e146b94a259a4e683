@@ -1,0 +1,19 @@
+package application;
+
+public class DictionaryServer {
+
+    public static void main(String[] args) {
+        // Ensure there are enough arguments
+        if(args.length != 2) {
+            System.out.println("Usage: java DictionaryServer <port> <dictionary-file>");
+            return;
+        }
+
+        int port = Integer.parseInt(args[0]);
+        String dictionaryFilePath = args[1];
+
+        // TODO: Logic to load dictionary file and start the server
+        System.out.println("Starting server on port: " + port);
+        System.out.println("Loading dictionary from: " + dictionaryFilePath);
+    }
+}

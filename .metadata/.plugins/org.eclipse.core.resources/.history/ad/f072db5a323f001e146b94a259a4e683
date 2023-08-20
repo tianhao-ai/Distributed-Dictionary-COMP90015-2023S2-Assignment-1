@@ -1,0 +1,46 @@
+package application;
+	
+import javafx.application.Application;
+import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.VBox;
+import javafx.stage.Stage;
+
+
+public class DictionaryClient extends Application {
+	public static void main(String[] args) {
+        launch(args);
+    }
+
+    @Override
+    public void start(Stage primaryStage) {
+        primaryStage.setTitle("Dictionary Client");
+
+        // Create GUI components
+        TextField wordField = new TextField();
+        wordField.setPromptText("Enter Word");
+
+        TextField meaningField = new TextField();
+        meaningField.setPromptText("Enter Meaning");
+
+        Button searchButton = new Button("Search");
+        Button addButton = new Button("Add");
+        Button removeButton = new Button("Remove");
+        Button updateButton = new Button("Update");
+
+        // TODO: Add event handlers for the buttons to perform operations.
+
+        TextArea resultArea = new TextArea();
+        resultArea.setEditable(false);
+
+        // Layout
+        VBox layout = new VBox(10, wordField, meaningField, searchButton, addButton, removeButton, updateButton, resultArea);
+        layout.setPadding(new javafx.geometry.Insets(10));
+
+        Scene scene = new Scene(layout, 400, 400);
+        primaryStage.setScene(scene);
+        primaryStage.show();
+    }
+}

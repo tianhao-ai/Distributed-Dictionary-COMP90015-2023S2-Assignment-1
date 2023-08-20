@@ -1,0 +1,73 @@
+package application;
+
+import javafx.application.Application;
+import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.VBox;
+import javafx.stage.Stage;
+
+public class DictionaryServer extends Application {
+
+    // Global variables to keep track of the state
+    private int numberOfWorkers;
+
+    public static void main(String[] args) {
+        launch(args);
+    }
+
+    @Override
+    public void start(Stage primaryStage) {
+        primaryStage.setTitle("Dictionary Server Management");
+
+        // Create GUI components
+        TextArea dictionaryArea = new TextArea();
+        dictionaryArea.setPromptText("Words in Dictionary");
+        dictionaryArea.setEditable(false);
+
+        TextArea logArea = new TextArea();
+        logArea.setPromptText("Server Logs");
+        logArea.setEditable(false);
+
+        TextField workerField = new TextField();
+        workerField.setPromptText("Enter Number of Workers");
+
+        Button startButton = new Button("Start Server");
+        startButton.setOnAction(event -> {
+            // TODO: Logic to start the server based on worker count
+            numberOfWorkers = Integer.parseInt(workerField.getText());
+            logArea.appendText("Server started with " + numberOfWorkers + " workers.\n");
+        });
+
+        Button increaseWorkersButton = new Button("Increase Workers");
+        increaseWorkersButton.setOnAction(event -> {
+            // TODO: Logic to increase the number of workers
+            numberOfWorkers++;
+            logArea.appendText("Number of workers increased to: " + numberOfWorkers + "\n");
+        });
+
+        Button decreaseWorkersButton = new Button("Decrease Workers");
+        decreaseWorkersButton.setOnAction(event -> {
+            // TODO: Logic to decrease the number of workers
+            if (numberOfWorkers > 0) {
+                numberOfWorkers--;
+                logArea.appendText("Number of workers decreased to: " + numberOfWorkers + "\n");
+            }
+        });
+
+        Button showDictionaryButton = new Button("Show Dictionary");
+        showDictionaryButton.setOnAction(event -> {
+            // TODO: Logic to display words in the dictionary in the dictionaryArea
+            dictionaryArea.appendText("Displaying dictionary words...\n");
+        });
+
+        // Layout
+        VBox layout = new VBox(10, workerField, startButton, increaseWorkersButton, decreaseWorkersButton, showDictionaryButton, dictionaryArea, logArea);
+        layout.setPadding(new javafx.geometry.Insets(10));
+
+        Scene scene = new Scene(layout, 500, 500);
+        primaryStage.setScene(scene);
+        primaryStage.show();
+    }
+}
