@@ -1,80 +1,128 @@
 package application;
-	
-import javafx.application.Application;
-import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.TextArea;
-import javafx.scene.control.TextField;
-import javafx.scene.layout.VBox;
-import javafx.stage.Stage;
 import org.json.JSONObject;
 
-public class DictionaryClient extends Application {
-	public static void main(String[] args) {
-        launch(args);
-    }
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.Socket;
 
-    @Override
-    public void start(Stage primaryStage) {
-        primaryStage.setTitle("Dictionary Client");
+public class DictionaryClient {
+	private static String serverAddress;
+    private static int serverPort;
 
-        // Create GUI components
+    public static void main(String[] args) {
+        if (args.length >= 2) {
+            serverAddress = args[0];
+            serverPort = Integer.parseInt(args[1]);
+        }
+        
+        Frame frame = new Frame("Dictionary Client");
+        Panel panel = new Panel();
+        panel.setLayout(new GridLayout(8, 1));
+
         TextField wordField = new TextField();
-        wordField.setPromptText("Enter Word");
+        wordField.setText("Enter Word");
 
         TextField meaningField = new TextField();
-        meaningField.setPromptText("Enter Meaning");
+        meaningField.setText("Enter Meaning");
 
         Button searchButton = new Button("Search");
         Button addButton = new Button("Add");
         Button removeButton = new Button("Remove");
         Button updateButton = new Button("Update");
-        
+
         TextArea resultArea = new TextArea();
         resultArea.setEditable(false);
-        
+
         // Event handlers for the buttons
-        searchButton.setOnAction(event -> {
+        searchButton.addActionListener((ActionEvent event) -> {
             JSONObject request = new JSONObject();
             request.put("action", "search");
             request.put("word", wordField.getText());
-            // TODO: Send this JSON request to the server and handle the response
-            resultArea.appendText("Sent search request for word: " + wordField.getText() + "\n");
+
+            JSONObject response = sendRequestToServer(request);
+            if (response != null && response.getString("status").equals("success")) {
+                resultArea.append("Found word: " + wordField.getText() + " Meaning: " + response.getString("meaning") + "\n");
+            } else {
+                resultArea.append("Word not found or error occurred.\n");
+            }
         });
 
-        addButton.setOnAction(event -> {
+        addButton.addActionListener((ActionEvent event) -> {
             JSONObject request = new JSONObject();
             request.put("action", "add");
             request.put("word", wordField.getText());
             request.put("meaning", meaningField.getText());
-            // TODO: Send this JSON request to the server and handle the response
-            resultArea.appendText("Sent add request for word: " + wordField.getText() + "\n");
+
+            JSONObject response = sendRequestToServer(request);
+            if (response != null && response.getString("status").equals("success")) {
+                resultArea.append("Added word: " + wordField.getText() + "\n");
+            } else {
+                resultArea.append("Failed to add word or word already exists.\n");
+            }
         });
 
-        // TODO: Add event handlers for the buttons to perform operations.
-        removeButton.setOnAction(event -> {
+        removeButton.addActionListener((ActionEvent event) -> {
             JSONObject request = new JSONObject();
             request.put("action", "remove");
             request.put("word", wordField.getText());
-            // TODO: Send this JSON request to the server and handle the response
-            resultArea.appendText("Sent remove request for word: " + wordField.getText() + "\n");
+
+            JSONObject response = sendRequestToServer(request);
+            if (response != null && response.getString("status").equals("success")) {
+                resultArea.append("Removed word: " + wordField.getText() + "\n");
+            } else {
+                resultArea.append("Failed to remove word or word not found.\n");
+            }
         });
 
-        updateButton.setOnAction(event -> {
+        updateButton.addActionListener((ActionEvent event) -> {
             JSONObject request = new JSONObject();
             request.put("action", "update");
             request.put("word", wordField.getText());
             request.put("meaning", meaningField.getText());
-            // TODO: Send this JSON request to the server and handle the response
-            resultArea.appendText("Sent update request for word: " + wordField.getText() + "\n");
+
+            JSONObject response = sendRequestToServer(request);
+            if (response != null && response.getString("status").equals("success")) {
+                resultArea.append("Updated word: " + wordField.getText() + "\n");
+            } else {
+                resultArea.append("Failed to update word or word not found.\n");
+            }
         });
 
-        // Layout
-        VBox layout = new VBox(10, wordField, meaningField, searchButton, addButton, removeButton, updateButton, resultArea);
-        layout.setPadding(new javafx.geometry.Insets(10));
+        // Add components to panel
+        panel.add(wordField);
+        panel.add(meaningField);
+        panel.add(searchButton);
+        panel.add(addButton);
+        panel.add(removeButton);
+        panel.add(updateButton);
+        panel.add(resultArea);
 
-        Scene scene = new Scene(layout, 400, 400);
-        primaryStage.setScene(scene);
-        primaryStage.show();
+        frame.add(panel);
+        frame.setSize(400, 400);
+        frame.setVisible(true);
+
+        frame.addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent windowEvent) {
+                System.exit(0);
+            }
+        });
+    }
+    private static JSONObject sendRequestToServer(JSONObject request) {
+        try (Socket socket = new Socket(serverAddress, serverPort);
+             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+
+            out.println(request.toString());
+
+            String responseStr = in.readLine();
+            return new JSONObject(responseStr);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 }

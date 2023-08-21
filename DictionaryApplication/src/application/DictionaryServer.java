@@ -5,54 +5,173 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
-import javafx.application.Application;
-import javafx.geometry.Insets;
-import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.TextArea;
-import javafx.scene.control.TextField;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
-import javafx.stage.Stage;
+import java.awt.*;
+import java.io.*;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.util.HashMap;
+import java.util.Map;
 
+import java.io.IOException;
 
-public class DictionaryServer extends Application {
-    private int numberOfWorkers;
+import org.json.JSONObject;
+import org.json.JSONException;
+
+public class DictionaryServer {
+	private int numberOfWorkers;
     private ThreadPool threadPool;
-    public static void main(String[] args) {
-        launch(args);
+    private int port;
+    private String dictionaryFilePath;
+    private HashMap<String, String> dictionary = new HashMap<>();
+    private ServerSocket serverSocket;
+    private Label lblCurrentWorkers;
+
+    public DictionaryServer(String[] args) {
+        if (args.length >= 2) {
+            port = Integer.parseInt(args[0]);
+            dictionaryFilePath = args[1];
+        }
+        loadDictionary();
     }
 
-    @Override
-    public void start(Stage primaryStage) {
-        primaryStage.setTitle("Dictionary Server Management");
+    public static void main(String[] args) {
+        new DictionaryServer(args).initializeServerGUI();
+    }
+    private void loadDictionary() {
+        // TODO: Load words and meanings from the dictionary file into the dictionary HashMap
+        try (BufferedReader reader = new BufferedReader(new FileReader(dictionaryFilePath))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split(":", 2);
+                if (parts.length >= 2) {
+                    dictionary.put(parts[0], parts[1]);
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+ // Start the server logic (like listening for client connections)
+    private void startServer() {
+        new Thread(() -> {
+            try {
+                serverSocket = new ServerSocket(port);
+                lblCurrentWorkers.setText("Current Workers: " + numberOfWorkers);
+                while (true) {
+                    Socket clientSocket = serverSocket.accept();
+                    threadPool.submit(() -> handleClientRequest(clientSocket));
+                }
+            } catch (IOException e) {
+                if (!serverSocket.isClosed()) {
+                    e.printStackTrace();
+                }
+            }
+        }).start();
+    }
 
-        // Server Control Section
+    private void handleClientRequest(Socket clientSocket) {
+        try (BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+             PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true)) {
+
+            String clientMessage = in.readLine();
+            JSONObject request = new JSONObject(clientMessage);
+            String action = request.getString("action");
+            JSONObject response = new JSONObject();
+
+            switch (action) {
+                case "search":
+                    String wordToSearch = request.getString("word");
+                    if (dictionary.containsKey(wordToSearch)) {
+                        response.put("status", "success");
+                        response.put("meaning", dictionary.get(wordToSearch));
+                    } else {
+                        response.put("status", "not found");
+                    }
+                    break;
+                case "add":
+                    String wordToAdd = request.getString("word");
+                    String meaningToAdd = request.getString("meaning");
+                    if (!dictionary.containsKey(wordToAdd)) {
+                        dictionary.put(wordToAdd, meaningToAdd);
+                        response.put("status", "success");
+                    } else {
+                        response.put("status", "duplicate");
+                    }
+                    break;
+                case "remove":
+                    String wordToRemove = request.getString("word");
+                    if (dictionary.containsKey(wordToRemove)) {
+                        dictionary.remove(wordToRemove);
+                        response.put("status", "success");
+                    } else {
+                        response.put("status", "not found");
+                    }
+                    break;
+                case "update":
+                    String wordToUpdate = request.getString("word");
+                    String newMeaning = request.getString("meaning");
+                    if (dictionary.containsKey(wordToUpdate)) {
+                        dictionary.put(wordToUpdate, newMeaning);
+                        response.put("status", "success");
+                    } else {
+                        response.put("status", "not found");
+                    }
+                    break;
+            }
+
+            out.println(response.toString());
+
+        } catch (IOException | JSONException e) {
+            e.printStackTrace();
+        }
+    }
+    private void initializeServerGUI() {
+        Frame frame = new Frame("Dictionary Server Management");
+
+        Panel serverControl = new Panel();
         Label lblServerStatus = new Label("Status: Stopped");
         TextField workerField = new TextField(String.valueOf(Runtime.getRuntime().availableProcessors()));
-        workerField.setPrefWidth(50);
+        workerField.setColumns(5);
         Button startButton = new Button("Start Server");
         Button stopButton = new Button("Stop Server");
-        startButton.setOnAction(event -> {
+
+        startButton.addActionListener(event -> {
             numberOfWorkers = Integer.parseInt(workerField.getText());
             threadPool = new ThreadPool(numberOfWorkers);
             lblServerStatus.setText("Status: Running");
-            // TODO: Start the actual server logic (like listening for client connections)
+
+            // Start the actual server logic using the worker-pool architecture
+            startServer();
         });
-        stopButton.setOnAction(event -> {
+
+        stopButton.addActionListener(event -> {
             if (threadPool != null) {
                 threadPool.shutdown();
             }
+
+            if (serverSocket != null && !serverSocket.isClosed()) {
+                try {
+                    serverSocket.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+
             lblServerStatus.setText("Status: Stopped");
         });
-        HBox serverControl = new HBox(10, new Label("Initial Workers:"), workerField, startButton, stopButton, lblServerStatus);
-        // Worker Control Section
+
+        serverControl.add(new Label("Initial Workers:"));
+        serverControl.add(workerField);
+        serverControl.add(startButton);
+        serverControl.add(stopButton);
+        serverControl.add(lblServerStatus);
+
+        Panel workerControl = new Panel();
         Button increaseWorkersButton = new Button("Increase Workers");
         Button decreaseWorkersButton = new Button("Decrease Workers");
-        Label lblCurrentWorkers = new Label("Current Workers: " + numberOfWorkers);
-        HBox workerControl = new HBox(10, increaseWorkersButton, decreaseWorkersButton, lblCurrentWorkers);
-        increaseWorkersButton.setOnAction(event -> {
+        lblCurrentWorkers = new Label("Current Workers: " + numberOfWorkers);
+
+        increaseWorkersButton.addActionListener(event -> {
             // TODO: Logic to increase the number of workers
             if (threadPool != null) {
                 threadPool.increaseWorkers();
@@ -61,7 +180,7 @@ public class DictionaryServer extends Application {
             }
         });
 
-        decreaseWorkersButton.setOnAction(event -> {
+        decreaseWorkersButton.addActionListener(event -> {
             // TODO: Logic to decrease the number of workers
             if (threadPool != null && numberOfWorkers > 0) {
                 threadPool.decreaseWorkers();
@@ -69,27 +188,50 @@ public class DictionaryServer extends Application {
                 lblCurrentWorkers.setText("Current Workers: " + numberOfWorkers);
             }
         });
-        // Dictionary Display Section
-        Button showDictionaryButton = new Button("Show Dictionary");
-        TextArea dictionaryArea = new TextArea();
-        dictionaryArea.setPromptText("Words in Dictionary");
-        dictionaryArea.setEditable(false);
-        VBox dictionaryDisplay = new VBox(10, showDictionaryButton, dictionaryArea);
 
-        // Logs Section
-        TextArea logArea = new TextArea();
-        logArea.setPromptText("Server Logs");
+        workerControl.add(increaseWorkersButton);
+        workerControl.add(decreaseWorkersButton);
+        workerControl.add(lblCurrentWorkers);
+
+        Panel dictionaryDisplay = new Panel();
+        Button showDictionaryButton = new Button("Show Dictionary");
+        TextArea dictionaryArea = new TextArea(5, 50);
+        
+        showDictionaryButton.addActionListener(event -> {
+            StringBuilder content = new StringBuilder();
+            for (Map.Entry<String, String> entry : dictionary.entrySet()) {
+                content.append(entry.getKey()).append(": ").append(entry.getValue()).append("\n");
+            }
+            dictionaryArea.setText(content.toString());
+        });
+        
+        dictionaryArea.setEditable(false);
+        dictionaryDisplay.add(showDictionaryButton);
+        dictionaryDisplay.add(dictionaryArea);
+
+        TextArea logArea = new TextArea(10, 50);
         logArea.setEditable(false);
 
-        // Layout
-        VBox layout = new VBox(20, serverControl, workerControl, dictionaryDisplay, logArea);
-        layout.setPadding(new Insets(10));
+        Panel mainPanel = new Panel();
+        mainPanel.setLayout(new GridLayout(4, 1));  // 4 rows, 1 column
+        mainPanel.add(serverControl);
+        mainPanel.add(workerControl);
+        mainPanel.add(dictionaryDisplay);
+        mainPanel.add(logArea);
 
-        Scene scene = new Scene(layout, 600, 600);
-        primaryStage.setScene(scene);
-        primaryStage.show();
+        frame.add(mainPanel);
+        frame.pack();
+        frame.setVisible(true);
+
+        frame.addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent windowEvent) {
+                System.exit(0);
+            }
+        });
     }
 }
+
 class WorkerThread extends Thread {
     private final Queue<Runnable> taskQueue;
     private boolean isStopped = false;
