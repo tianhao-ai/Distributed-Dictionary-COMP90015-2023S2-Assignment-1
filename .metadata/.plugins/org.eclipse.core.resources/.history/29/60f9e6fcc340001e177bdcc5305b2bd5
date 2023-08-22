@@ -1,0 +1,373 @@
+package application;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.Queue;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+
+import java.awt.*;
+import java.io.*;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.util.HashMap;
+import java.util.Map;
+
+import java.io.IOException;
+
+import org.json.JSONObject;
+import org.json.JSONException;
+
+public class DictionaryServer {
+	private int numberOfWorkers;
+    private ThreadPool threadPool;
+    private int port;
+    private String dictionaryFilePath;
+    private HashMap<String, String> dictionary = new HashMap<>();
+    private ServerSocket serverSocket;
+    private Label lblCurrentWorkers;
+    private Connection connection;
+
+    public DictionaryServer(String[] args) {
+        if (args.length >= 2) {
+            port = Integer.parseInt(args[0]);
+            dictionaryFilePath = args[1];
+        }
+
+        try {
+            connectToDatabase();
+            loadDictionary();
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.exit(1); // Exit if there's an error connecting to the database or loading the dictionary
+        }
+    }
+
+    public static void main(String[] args) {
+        new DictionaryServer(args).initializeServerGUI();
+    }
+
+    private void connectToDatabase() throws Exception {
+        String url = "jdbc:sqlite:" + dictionaryFilePath;  // SQLite database path determined by dictionaryFilePath
+        connection = DriverManager.getConnection(url);
+
+        // Create the dictionary table if it doesn't exist
+        try (PreparedStatement stmt = connection.prepareStatement(
+            "CREATE TABLE IF NOT EXISTS dictionary (word TEXT PRIMARY KEY, meaning TEXT)")) {
+            stmt.execute();
+        }
+    }
+
+    private void loadDictionary() {
+        try (PreparedStatement stmt = connection.prepareStatement("SELECT word, meaning FROM dictionary");
+             ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                dictionary.put(rs.getString("word"), rs.getString("meaning"));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+ // Start the server logic (like listening for client connections)
+    private void startServer() {
+        new Thread(() -> {
+            try {
+                serverSocket = new ServerSocket(port);
+                lblCurrentWorkers.setText("Current Workers: " + numberOfWorkers);
+                while (true) {
+                    Socket clientSocket = serverSocket.accept();
+                    threadPool.submit(() -> handleClientRequest(clientSocket));
+                }
+            } catch (IOException e) {
+                if (!serverSocket.isClosed()) {
+                    e.printStackTrace();
+                }
+            }
+        }).start();
+    }
+
+    private void handleClientRequest(Socket clientSocket) {
+        try (BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+             PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true)) {
+
+            String clientMessage = in.readLine();
+            JSONObject request = new JSONObject(clientMessage);
+            String action = request.getString("action");
+            JSONObject response = new JSONObject();
+
+            switch (action) {
+	            case "search":
+	                String wordToSearch = request.getString("word");
+	                try (PreparedStatement stmt = connection.prepareStatement("SELECT meaning FROM dictionary WHERE word = ?")) {
+	                    stmt.setString(1, wordToSearch);
+	                    ResultSet rs = stmt.executeQuery();
+	                    if (rs.next()) {
+	                        response.put("status", "success");
+	                        response.put("meaning", rs.getString("meaning"));
+	                    } else {
+	                        response.put("status", "not found");
+	                    }
+	                }
+	                break;
+	
+	            case "add":
+	                String wordToAdd = request.getString("word");
+	                String meaningToAdd = request.getString("meaning");
+	
+	                if (meaningToAdd == null || meaningToAdd.isEmpty()) {
+	                    response.put("status", "error");
+	                    response.put("description", "Meaning is required for the word.");
+	                    break;
+	                }
+	
+	                try (PreparedStatement stmtCheck = connection.prepareStatement("SELECT 1 FROM dictionary WHERE word = ?")) {
+	                    stmtCheck.setString(1, wordToAdd);
+	                    ResultSet rs = stmtCheck.executeQuery();
+	                    if (rs.next()) {
+	                        response.put("status", "duplicate");
+	                    } else {
+	                        try (PreparedStatement stmtInsert = connection.prepareStatement("INSERT INTO dictionary(word, meaning) VALUES(?, ?)")) {
+	                            stmtInsert.setString(1, wordToAdd);
+	                            stmtInsert.setString(2, meaningToAdd);
+	                            stmtInsert.execute();
+	                            response.put("status", "success");
+	                        }
+	                    }
+	                }
+	                break;
+	
+	            case "remove":
+	                String wordToRemove = request.getString("word");
+	                try (PreparedStatement stmt = connection.prepareStatement("DELETE FROM dictionary WHERE word = ?")) {
+	                    stmt.setString(1, wordToRemove);
+	                    int rowsAffected = stmt.executeUpdate();
+	                    if (rowsAffected > 0) {
+	                        response.put("status", "success");
+	                    } else {
+	                        response.put("status", "not found");
+	                    }
+	                }
+	                break;
+	
+	            case "update":
+	                String wordToUpdate = request.getString("word");
+	                String newMeaning = request.getString("meaning");
+	
+	                if (newMeaning == null || newMeaning.isEmpty()) {
+	                    response.put("status", "error");
+	                    response.put("description", "New meaning is required for the update.");
+	                    break;
+	                }
+	
+	                try (PreparedStatement stmt = connection.prepareStatement("UPDATE dictionary SET meaning = ? WHERE word = ?")) {
+	                    stmt.setString(1, newMeaning);
+	                    stmt.setString(2, wordToUpdate);
+	                    int rowsAffected = stmt.executeUpdate();
+	                    if (rowsAffected > 0) {
+	                        response.put("status", "success");
+	                    } else {
+	                        response.put("status", "not found");
+	                    }
+	                }
+	                break;
+            }
+            out.println(response.toString());
+
+        } catch (IOException | JSONException | SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void initializeServerGUI() {
+        Frame frame = new Frame("Dictionary Server Management");
+
+        Panel serverControl = new Panel();
+        Label lblServerStatus = new Label("Status: Stopped");
+        TextField workerField = new TextField(String.valueOf(Runtime.getRuntime().availableProcessors()));
+        workerField.setColumns(5);
+        Button startButton = new Button("Start Server");
+        Button stopButton = new Button("Stop Server");
+
+        startButton.addActionListener(event -> {
+            numberOfWorkers = Integer.parseInt(workerField.getText());
+            threadPool = new ThreadPool(numberOfWorkers);
+            lblServerStatus.setText("Status: Running");
+
+            // Start the actual server logic using the worker-pool architecture
+            startServer();
+        });
+
+        stopButton.addActionListener(event -> {
+            if (threadPool != null) {
+                threadPool.shutdown();
+            }
+
+            if (serverSocket != null && !serverSocket.isClosed()) {
+                try {
+                    serverSocket.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            lblServerStatus.setText("Status: Stopped");
+        });
+
+        serverControl.add(new Label("Initial Workers:"));
+        serverControl.add(workerField);
+        serverControl.add(startButton);
+        serverControl.add(stopButton);
+        serverControl.add(lblServerStatus);
+
+        Panel workerControl = new Panel();
+        Button increaseWorkersButton = new Button("Increase Workers");
+        Button decreaseWorkersButton = new Button("Decrease Workers");
+        lblCurrentWorkers = new Label("Current Workers: " + numberOfWorkers);
+
+        increaseWorkersButton.addActionListener(event -> {
+            // TODO: Logic to increase the number of workers
+            if (threadPool != null) {
+                threadPool.increaseWorkers();
+                numberOfWorkers++;
+                lblCurrentWorkers.setText("Current Workers: " + numberOfWorkers);
+            }
+        });
+
+        decreaseWorkersButton.addActionListener(event -> {
+            // TODO: Logic to decrease the number of workers
+            if (threadPool != null && numberOfWorkers > 0) {
+                threadPool.decreaseWorkers();
+                numberOfWorkers--;
+                lblCurrentWorkers.setText("Current Workers: " + numberOfWorkers);
+            }
+        });
+
+        workerControl.add(increaseWorkersButton);
+        workerControl.add(decreaseWorkersButton);
+        workerControl.add(lblCurrentWorkers);
+
+        Panel dictionaryDisplay = new Panel();
+        Button showDictionaryButton = new Button("Show Dictionary");
+        TextArea dictionaryArea = new TextArea(5, 50);
+        
+        showDictionaryButton.addActionListener(event -> {
+            StringBuilder content = new StringBuilder();
+            for (Map.Entry<String, String> entry : dictionary.entrySet()) {
+                content.append(entry.getKey()).append(": ").append(entry.getValue()).append("\n");
+            }
+            dictionaryArea.setText(content.toString());
+        });
+        
+        dictionaryArea.setEditable(false);
+        dictionaryDisplay.add(showDictionaryButton);
+        dictionaryDisplay.add(dictionaryArea);
+
+        TextArea logArea = new TextArea(10, 50);
+        logArea.setEditable(false);
+
+        Panel mainPanel = new Panel();
+        mainPanel.setLayout(new GridLayout(4, 1));  // 4 rows, 1 column
+        mainPanel.add(serverControl);
+        mainPanel.add(workerControl);
+        mainPanel.add(dictionaryDisplay);
+        mainPanel.add(logArea);
+
+        frame.add(mainPanel);
+        frame.pack();
+        frame.setVisible(true);
+
+        frame.addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent windowEvent) {
+                System.exit(0);
+            }
+        });
+    }
+}
+
+class WorkerThread extends Thread {
+    private final Queue<Runnable> taskQueue;
+    private boolean isStopped = false;
+
+    public WorkerThread(Queue<Runnable> taskQueue) {
+        this.taskQueue = taskQueue;
+    }
+
+    @Override
+    public void run() {
+        while (!isStopped) {
+            Runnable task = null;
+            synchronized (taskQueue) {
+                while (taskQueue.isEmpty() && !isStopped) {
+                    try {
+                        taskQueue.wait();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+                }
+                if (!taskQueue.isEmpty()) {
+                    task = taskQueue.poll();
+                }
+            }
+            if (task != null) {
+                task.run();
+            }
+        }
+    }
+
+    public void stopWorker() {
+        isStopped = true;
+        synchronized (taskQueue) {
+            taskQueue.notifyAll();
+        }
+    }
+}
+
+class ThreadPool {
+    private final Queue<Runnable> taskQueue = new LinkedList<>();
+    private final List<WorkerThread> threads;
+    private final int poolSize;
+
+    public ThreadPool(int poolSize) {
+        this.poolSize = poolSize;
+        threads = new ArrayList<>(poolSize);
+
+        // Initialize and start worker threads
+        for (int i = 0; i < poolSize; i++) {
+            WorkerThread worker = new WorkerThread(taskQueue);
+            threads.add(worker);
+            worker.start();
+        }
+    }
+
+    public void submit(Runnable task) {
+        synchronized (taskQueue) {
+            taskQueue.add(task);
+            taskQueue.notify();
+        }
+    }
+
+    public void shutdown() {
+        for (WorkerThread worker : threads) {
+            worker.stopWorker();
+        }
+    }
+
+    public void increaseWorkers() {
+        WorkerThread worker = new WorkerThread(taskQueue);
+        threads.add(worker);
+        worker.start();
+    }
+
+    public void decreaseWorkers() {
+        if (!threads.isEmpty()) {
+            WorkerThread worker = threads.remove(threads.size() - 1);
+            worker.stopWorker();
+        }
+    }
+}

@@ -1,5 +1,10 @@
 package application;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Queue;
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -25,29 +30,45 @@ public class DictionaryServer {
     private HashMap<String, String> dictionary = new HashMap<>();
     private ServerSocket serverSocket;
     private Label lblCurrentWorkers;
+    private Connection connection;
 
     public DictionaryServer(String[] args) {
         if (args.length >= 2) {
             port = Integer.parseInt(args[0]);
             dictionaryFilePath = args[1];
         }
-        loadDictionary();
+
+        try {
+            connectToDatabase();
+            loadDictionary();
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.exit(1); // Exit if there's an error connecting to the database or loading the dictionary
+        }
     }
 
     public static void main(String[] args) {
         new DictionaryServer(args).initializeServerGUI();
     }
+
+    private void connectToDatabase() throws Exception {
+        String url = "jdbc:sqlite:" + dictionaryFilePath;  // SQLite database path determined by dictionaryFilePath
+        connection = DriverManager.getConnection(url);
+
+        // Create the dictionary table if it doesn't exist
+        try (PreparedStatement stmt = connection.prepareStatement(
+            "CREATE TABLE IF NOT EXISTS dictionary (word TEXT PRIMARY KEY, meaning TEXT)")) {
+            stmt.execute();
+        }
+    }
+
     private void loadDictionary() {
-        // TODO: Load words and meanings from the dictionary file into the dictionary HashMap
-        try (BufferedReader reader = new BufferedReader(new FileReader(dictionaryFilePath))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                String[] parts = line.split(":", 2);
-                if (parts.length >= 2) {
-                    dictionary.put(parts[0], parts[1]);
-                }
+        try (PreparedStatement stmt = connection.prepareStatement("SELECT word, meaning FROM dictionary");
+             ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                dictionary.put(rs.getString("word"), rs.getString("meaning"));
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -81,6 +102,7 @@ public class DictionaryServer {
             switch (action) {
                 case "search":
                     String wordToSearch = request.getString("word");
+                    // Use the HashMap for search operations for faster lookups
                     if (dictionary.containsKey(wordToSearch)) {
                         response.put("status", "success");
                         response.put("meaning", dictionary.get(wordToSearch));
@@ -88,43 +110,63 @@ public class DictionaryServer {
                         response.put("status", "not found");
                     }
                     break;
+
                 case "add":
                     String wordToAdd = request.getString("word");
                     String meaningToAdd = request.getString("meaning");
                     if (!dictionary.containsKey(wordToAdd)) {
+                        // Update both HashMap and database
                         dictionary.put(wordToAdd, meaningToAdd);
-                        response.put("status", "success");
+                        try (PreparedStatement stmtInsert = connection.prepareStatement("INSERT INTO dictionary(word, meaning) VALUES(?, ?)")) {
+                            stmtInsert.setString(1, wordToAdd);
+                            stmtInsert.setString(2, meaningToAdd);
+                            stmtInsert.execute();
+                            response.put("status", "success");
+                        }
                     } else {
                         response.put("status", "duplicate");
                     }
                     break;
+
                 case "remove":
                     String wordToRemove = request.getString("word");
                     if (dictionary.containsKey(wordToRemove)) {
+                        // Remove from both HashMap and database
                         dictionary.remove(wordToRemove);
-                        response.put("status", "success");
+                        try (PreparedStatement stmt = connection.prepareStatement("DELETE FROM dictionary WHERE word = ?")) {
+                            stmt.setString(1, wordToRemove);
+                            stmt.executeUpdate();
+                            response.put("status", "success");
+                        }
                     } else {
                         response.put("status", "not found");
                     }
                     break;
+
                 case "update":
                     String wordToUpdate = request.getString("word");
                     String newMeaning = request.getString("meaning");
                     if (dictionary.containsKey(wordToUpdate)) {
+                        // Update both HashMap and database
                         dictionary.put(wordToUpdate, newMeaning);
-                        response.put("status", "success");
+                        try (PreparedStatement stmt = connection.prepareStatement("UPDATE dictionary SET meaning = ? WHERE word = ?")) {
+                            stmt.setString(1, newMeaning);
+                            stmt.setString(2, wordToUpdate);
+                            stmt.executeUpdate();
+                            response.put("status", "success");
+                        }
                     } else {
                         response.put("status", "not found");
                     }
                     break;
             }
-
             out.println(response.toString());
 
-        } catch (IOException | JSONException e) {
+        } catch (IOException | JSONException | SQLException e) {
             e.printStackTrace();
         }
     }
+
     private void initializeServerGUI() {
         Frame frame = new Frame("Dictionary Server Management");
 
