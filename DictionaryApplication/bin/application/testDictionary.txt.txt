@@ -1,3 +1,0 @@
-apple: A round fruit with a smooth skin.
-banana: A long curved fruit.
-cherry: A small round fruit, usually red or black.
