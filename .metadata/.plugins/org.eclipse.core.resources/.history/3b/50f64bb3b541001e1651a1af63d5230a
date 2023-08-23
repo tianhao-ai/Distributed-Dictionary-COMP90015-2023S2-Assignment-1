@@ -104,19 +104,9 @@ public class DictionaryServer {
             JSONObject request = new JSONObject(clientMessage);
             String action = request.getString("action");
             JSONObject response = new JSONObject();
-            if (!request.has("action")) {
-                response.put("status", "error");
-                response.put("description", "Missing 'action' field in request.");
-                out.println(response.toString());
-                return;
-            }
+
             switch (action) {
                 case "search":
-                	if (!request.has("word")) {
-                        response.put("status", "error");
-                        response.put("description", "Missing 'word' field in search request.");
-                        break;
-                    }
                     String wordToSearch = request.getString("word");
                     // Use the HashMap for search operations for faster lookups
                     if (dictionary.containsKey(wordToSearch)) {
@@ -129,11 +119,6 @@ public class DictionaryServer {
                     break;
 
                 case "add":
-                	if (!request.has("word") || !request.has("meaning")) {
-                        response.put("status", "error");
-                        response.put("description", "Missing 'word' or 'meaning' field in add request.");
-                        break;
-                    }
                     String wordToAdd = request.getString("word");
                     String meaningToAdd = request.getString("meaning");
                     if (!dictionary.containsKey(wordToAdd)) {
@@ -152,11 +137,6 @@ public class DictionaryServer {
                     break;
 
                 case "remove":
-                	if (!request.has("word")) {
-                        response.put("status", "error");
-                        response.put("description", "Missing 'word' field in remove request.");
-                        break;
-                    }
                     String wordToRemove = request.getString("word");
                     if (dictionary.containsKey(wordToRemove)) {
                         // Remove from both HashMap and database
@@ -173,11 +153,6 @@ public class DictionaryServer {
                     break;
 
                 case "update":
-                	if (!request.has("word") || !request.has("meaning")) {
-                        response.put("status", "error");
-                        response.put("description", "Missing 'word' or 'meaning' field in update request.");
-                        break;
-                    }
                     String wordToUpdate = request.getString("word");
                     String newMeaning = request.getString("meaning");
                     if (dictionary.containsKey(wordToUpdate)) {
@@ -193,10 +168,6 @@ public class DictionaryServer {
                         response.put("status", "not found");
                     }
                     logArea.append("Received 'update' request for word: " + wordToUpdate + "\n");
-                    break;
-                default:
-                    response.put("status", "error");
-                    response.put("description", "Unknown action: " + action);
                     break;
             }
             out.println(response.toString());
