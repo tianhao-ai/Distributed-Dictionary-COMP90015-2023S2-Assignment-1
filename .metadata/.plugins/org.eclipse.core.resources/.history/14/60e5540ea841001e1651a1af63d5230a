@@ -34,7 +34,6 @@ public class DictionaryServer {
     private Label lblAvgResponseTime = new Label("Average Response Time: 0 ms");
     private long totalResponseTime = 0;
     private long requestCount = 0;
-    private TextArea logArea;
 
     public DictionaryServer(String[] args) {
         if (args.length >= 2) {
@@ -81,21 +80,19 @@ public class DictionaryServer {
         new Thread(() -> {
             try {
                 serverSocket = new ServerSocket(port);
-                logArea.append("Server started on port: " + port + "\n");
                 lblCurrentWorkers.setText("Current Workers: " + numberOfWorkers);
                 while (true) {
                     Socket clientSocket = serverSocket.accept();
-                    logArea.append("Client connected: " + clientSocket.getInetAddress().getHostAddress() + "\n");
                     threadPool.submit(() -> handleClientRequest(clientSocket));
                 }
             } catch (IOException e) {
                 if (!serverSocket.isClosed()) {
                     e.printStackTrace();
-                    logArea.append("Error: " + e.getMessage() + "\n");
                 }
             }
         }).start();
     }
+
     private void handleClientRequest(Socket clientSocket) {
     	long startTime = System.currentTimeMillis();
         try (BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
@@ -115,7 +112,6 @@ public class DictionaryServer {
                     } else {
                         response.put("status", "not found");
                     }
-                    logArea.append("Received 'search' request for word: " + wordToSearch + "\n");
                     break;
 
                 case "add":
@@ -133,7 +129,6 @@ public class DictionaryServer {
                     } else {
                         response.put("status", "duplicate");
                     }
-                    logArea.append("Received 'add' request for word: " + wordToAdd + "\n");
                     break;
 
                 case "remove":
@@ -149,7 +144,6 @@ public class DictionaryServer {
                     } else {
                         response.put("status", "not found");
                     }
-                    logArea.append("Received 'remove' request for word: " + wordToRemove + "\n");
                     break;
 
                 case "update":
@@ -167,15 +161,12 @@ public class DictionaryServer {
                     } else {
                         response.put("status", "not found");
                     }
-                    logArea.append("Received 'update' request for word: " + wordToUpdate + "\n");
                     break;
             }
             out.println(response.toString());
+
         } catch (IOException | JSONException | SQLException e) {
             e.printStackTrace();
-            logArea.append("Error: " + e.getMessage() + "\n");
-        } finally {
-            logArea.append("Client disconnected: " + clientSocket.getInetAddress().getHostAddress() + "\n");
         }
         long endTime = System.currentTimeMillis();
         long responseTime = endTime - startTime;
@@ -220,7 +211,6 @@ public class DictionaryServer {
             }
 
             lblServerStatus.setText("Status: Stopped");
-            logArea.append("Server stopped.\n");
         });
 
         serverControl.add(new Label("Initial Workers:"));
@@ -242,7 +232,6 @@ public class DictionaryServer {
                 threadPool.increaseWorkers();
                 numberOfWorkers++;
                 lblCurrentWorkers.setText("Current Workers: " + numberOfWorkers);
-                logArea.append("Increased the number of workers to: " + numberOfWorkers + "\n");
             }
         });
 
@@ -252,7 +241,6 @@ public class DictionaryServer {
                 threadPool.decreaseWorkers();
                 numberOfWorkers--;
                 lblCurrentWorkers.setText("Current Workers: " + numberOfWorkers);
-                logArea.append("Decreased the number of workers to: " + numberOfWorkers + "\n");
             }
         });
 
@@ -296,7 +284,6 @@ public class DictionaryServer {
                 System.exit(0);
             }
         });
-        this.logArea = logArea;
     }
 }
 
