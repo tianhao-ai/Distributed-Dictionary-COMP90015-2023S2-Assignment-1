@@ -98,107 +98,116 @@ public class DictionaryServer {
     }
     private void handleClientRequest(Socket clientSocket) {
     	long startTime = System.currentTimeMillis();
-        try (BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-             PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true)) {
-            String clientMessage = in.readLine();
-            JSONObject request = new JSONObject(clientMessage);
-            String action = request.getString("action");
-            JSONObject response = new JSONObject();
-            if (!request.has("action")) {
-                response.put("status", "error");
-                response.put("description", "Missing 'action' field in request.");
-                out.println(response.toString());
-                return;
-            }
-            switch (action) {
-                case "search":
-                	if (!request.has("word")) {
-                        response.put("status", "error");
-                        response.put("description", "Missing 'word' field in search request.");
-                        break;
-                    }
-                    String wordToSearch = request.getString("word");
-                    // Use the HashMap for search operations for faster lookups
-                    if (dictionary.containsKey(wordToSearch)) {
-                        response.put("status", "success");
-                        response.put("meaning", dictionary.get(wordToSearch));
-                    } else {
-                        response.put("status", "not found");
-                    }
-                    logArea.append("Received 'search' request for word: " + wordToSearch + "\n");
-                    break;
+    	try (BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+    	         PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true)) {
+    	        String clientMessage = in.readLine();
+    	        JSONObject response = new JSONObject();
+    	        try {
+    	            JSONObject request = new JSONObject(clientMessage);
+    	            String action = request.getString("action");
 
-                case "add":
-                	if (!request.has("word") || !request.has("meaning")) {
-                        response.put("status", "error");
-                        response.put("description", "Missing 'word' or 'meaning' field in add request.");
-                        break;
-                    }
-                    String wordToAdd = request.getString("word");
-                    String meaningToAdd = request.getString("meaning");
-                    if (!dictionary.containsKey(wordToAdd)) {
-                        // Update both HashMap and database
-                        dictionary.put(wordToAdd, meaningToAdd);
-                        try (PreparedStatement stmtInsert = connection.prepareStatement("INSERT INTO dictionary(word, meaning) VALUES(?, ?)")) {
-                            stmtInsert.setString(1, wordToAdd);
-                            stmtInsert.setString(2, meaningToAdd);
-                            stmtInsert.execute();
-                            response.put("status", "success");
-                        }
-                    } else {
-                        response.put("status", "duplicate");
-                    }
-                    logArea.append("Received 'add' request for word: " + wordToAdd + "\n");
-                    break;
-
-                case "remove":
-                	if (!request.has("word")) {
-                        response.put("status", "error");
-                        response.put("description", "Missing 'word' field in remove request.");
-                        break;
-                    }
-                    String wordToRemove = request.getString("word");
-                    if (dictionary.containsKey(wordToRemove)) {
-                        // Remove from both HashMap and database
-                        dictionary.remove(wordToRemove);
-                        try (PreparedStatement stmt = connection.prepareStatement("DELETE FROM dictionary WHERE word = ?")) {
-                            stmt.setString(1, wordToRemove);
-                            stmt.executeUpdate();
-                            response.put("status", "success");
-                        }
-                    } else {
-                        response.put("status", "not found");
-                    }
-                    logArea.append("Received 'remove' request for word: " + wordToRemove + "\n");
-                    break;
-
-                case "update":
-                	if (!request.has("word") || !request.has("meaning")) {
-                        response.put("status", "error");
-                        response.put("description", "Missing 'word' or 'meaning' field in update request.");
-                        break;
-                    }
-                    String wordToUpdate = request.getString("word");
-                    String newMeaning = request.getString("meaning");
-                    if (dictionary.containsKey(wordToUpdate)) {
-                        // Update both HashMap and database
-                        dictionary.put(wordToUpdate, newMeaning);
-                        try (PreparedStatement stmt = connection.prepareStatement("UPDATE dictionary SET meaning = ? WHERE word = ?")) {
-                            stmt.setString(1, newMeaning);
-                            stmt.setString(2, wordToUpdate);
-                            stmt.executeUpdate();
-                            response.put("status", "success");
-                        }
-                    } else {
-                        response.put("status", "not found");
-                    }
-                    logArea.append("Received 'update' request for word: " + wordToUpdate + "\n");
-                    break;
-                default:
-                    response.put("status", "error");
-                    response.put("description", "Unknown action: " + action);
-                    break;
-            }
+    	            if (!request.has("action")) {
+    	                response.put("status", "error");
+    	                response.put("description", "Missing 'action' field in request.");
+    	                out.println(response.toString());
+    	                return;
+    	            }
+		            switch (action) {
+		                case "search":
+		                	if (!request.has("word")) {
+		                        response.put("status", "error");
+		                        response.put("description", "Missing 'word' field in search request.");
+		                        break;
+		                    }
+		                    String wordToSearch = request.getString("word");
+		                    // Use the HashMap for search operations for faster lookups
+		                    if (dictionary.containsKey(wordToSearch)) {
+		                        response.put("status", "success");
+		                        response.put("meaning", dictionary.get(wordToSearch));
+		                    } else {
+		                        response.put("status", "not found");
+		                    }
+		                    logArea.append("Received 'search' request for word: " + wordToSearch + "\n");
+		                    break;
+		
+		                case "add":
+		                	if (!request.has("word") || !request.has("meaning")) {
+		                        response.put("status", "error");
+		                        response.put("description", "Missing 'word' or 'meaning' field in add request.");
+		                        break;
+		                    }
+		                    String wordToAdd = request.getString("word");
+		                    String meaningToAdd = request.getString("meaning");
+		                    if (!dictionary.containsKey(wordToAdd)) {
+		                        // Update both HashMap and database
+		                        dictionary.put(wordToAdd, meaningToAdd);
+		                        try (PreparedStatement stmtInsert = connection.prepareStatement("INSERT INTO dictionary(word, meaning) VALUES(?, ?)")) {
+		                            stmtInsert.setString(1, wordToAdd);
+		                            stmtInsert.setString(2, meaningToAdd);
+		                            stmtInsert.execute();
+		                            response.put("status", "success");
+		                        }
+		                    } else {
+		                        response.put("status", "duplicate");
+		                    }
+		                    logArea.append("Received 'add' request for word: " + wordToAdd + "\n");
+		                    break;
+		
+		                case "remove":
+		                	if (!request.has("word")) {
+		                        response.put("status", "error");
+		                        response.put("description", "Missing 'word' field in remove request.");
+		                        break;
+		                    }
+		                    String wordToRemove = request.getString("word");
+		                    if (dictionary.containsKey(wordToRemove)) {
+		                        // Remove from both HashMap and database
+		                        dictionary.remove(wordToRemove);
+		                        try (PreparedStatement stmt = connection.prepareStatement("DELETE FROM dictionary WHERE word = ?")) {
+		                            stmt.setString(1, wordToRemove);
+		                            stmt.executeUpdate();
+		                            response.put("status", "success");
+		                        }
+		                    } else {
+		                        response.put("status", "not found");
+		                    }
+		                    logArea.append("Received 'remove' request for word: " + wordToRemove + "\n");
+		                    break;
+		
+		                case "update":
+		                	if (!request.has("word") || !request.has("meaning")) {
+		                        response.put("status", "error");
+		                        response.put("description", "Missing 'word' or 'meaning' field in update request.");
+		                        break;
+		                    }
+		                    String wordToUpdate = request.getString("word");
+		                    String newMeaning = request.getString("meaning");
+		                    if (dictionary.containsKey(wordToUpdate)) {
+		                        // Update both HashMap and database
+		                        dictionary.put(wordToUpdate, newMeaning);
+		                        try (PreparedStatement stmt = connection.prepareStatement("UPDATE dictionary SET meaning = ? WHERE word = ?")) {
+		                            stmt.setString(1, newMeaning);
+		                            stmt.setString(2, wordToUpdate);
+		                            stmt.executeUpdate();
+		                            response.put("status", "success");
+		                        }
+		                    } else {
+		                        response.put("status", "not found");
+		                    }
+		                    logArea.append("Received 'update' request for word: " + wordToUpdate + "\n");
+		                    break;
+		                default:
+		                    response.put("status", "error");
+		                    response.put("description", "Unknown action: " + action);
+		                    break;
+		            }
+    	        }catch (JSONException e) {
+    	            logArea.append("Error: Invalid JSON received. " + e.getMessage() + "\n");
+    	            response.put("status", "error");
+    	            response.put("description", "Invalid JSON format.");
+    	            out.println(response.toString());
+    	            return; // Exiting the method after sending the error response
+    	        }
             out.println(response.toString());
         } catch (IOException | JSONException | SQLException e) {
             e.printStackTrace();
