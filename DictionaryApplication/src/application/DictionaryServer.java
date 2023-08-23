@@ -126,12 +126,13 @@ public class DictionaryServer {
 		                        response.put("meaning", dictionary.get(wordToSearch));
 		                    } else {
 		                        response.put("status", "not found");
+		                        response.put("description", "Word not found or error occurred.");
 		                    }
 		                    logArea.append("Received 'search' request for word: " + wordToSearch + "\n");
 		                    break;
 		
 		                case "add":
-		                	if (!request.has("word") || !request.has("meaning")) {
+		                    if (!request.has("word") || !request.has("meaning")) {
 		                        response.put("status", "error");
 		                        response.put("description", "Missing 'word' or 'meaning' field in add request.");
 		                        break;
@@ -139,43 +140,53 @@ public class DictionaryServer {
 		                    String wordToAdd = request.getString("word");
 		                    String meaningToAdd = request.getString("meaning");
 		                    if (!dictionary.containsKey(wordToAdd)) {
-		                        // Update both HashMap and database
-		                        dictionary.put(wordToAdd, meaningToAdd);
 		                        try (PreparedStatement stmtInsert = connection.prepareStatement("INSERT INTO dictionary(word, meaning) VALUES(?, ?)")) {
 		                            stmtInsert.setString(1, wordToAdd);
 		                            stmtInsert.setString(2, meaningToAdd);
 		                            stmtInsert.execute();
+		                            
+		                            // Only update the HashMap after the database update is successful
+		                            dictionary.put(wordToAdd, meaningToAdd);
 		                            response.put("status", "success");
+		                        } catch (SQLException e) {
+		                            response.put("status", "error");
+		                            response.put("description", "Database error: " + e.getMessage());
 		                        }
 		                    } else {
 		                        response.put("status", "duplicate");
+		                        response.put("description", "Failed to add word or word already exists.");
 		                    }
 		                    logArea.append("Received 'add' request for word: " + wordToAdd + "\n");
 		                    break;
 		
 		                case "remove":
-		                	if (!request.has("word")) {
+		                    if (!request.has("word")) {
 		                        response.put("status", "error");
 		                        response.put("description", "Missing 'word' field in remove request.");
 		                        break;
 		                    }
 		                    String wordToRemove = request.getString("word");
 		                    if (dictionary.containsKey(wordToRemove)) {
-		                        // Remove from both HashMap and database
-		                        dictionary.remove(wordToRemove);
 		                        try (PreparedStatement stmt = connection.prepareStatement("DELETE FROM dictionary WHERE word = ?")) {
 		                            stmt.setString(1, wordToRemove);
 		                            stmt.executeUpdate();
+		                            
+		                            // Only remove from the HashMap after the database deletion is successful
+		                            dictionary.remove(wordToRemove);
 		                            response.put("status", "success");
+		                        } catch (SQLException e) {
+		                            response.put("status", "error");
+		                            response.put("description", "Database error: " + e.getMessage());
 		                        }
 		                    } else {
 		                        response.put("status", "not found");
+		                        response.put("description", "Failed to remove word or word not found.");
 		                    }
 		                    logArea.append("Received 'remove' request for word: " + wordToRemove + "\n");
 		                    break;
 		
 		                case "update":
-		                	if (!request.has("word") || !request.has("meaning")) {
+		                    if (!request.has("word") || !request.has("meaning")) {
 		                        response.put("status", "error");
 		                        response.put("description", "Missing 'word' or 'meaning' field in update request.");
 		                        break;
@@ -183,16 +194,21 @@ public class DictionaryServer {
 		                    String wordToUpdate = request.getString("word");
 		                    String newMeaning = request.getString("meaning");
 		                    if (dictionary.containsKey(wordToUpdate)) {
-		                        // Update both HashMap and database
-		                        dictionary.put(wordToUpdate, newMeaning);
 		                        try (PreparedStatement stmt = connection.prepareStatement("UPDATE dictionary SET meaning = ? WHERE word = ?")) {
 		                            stmt.setString(1, newMeaning);
 		                            stmt.setString(2, wordToUpdate);
 		                            stmt.executeUpdate();
+		                            
+		                            // Only update the HashMap after the database update is successful
+		                            dictionary.put(wordToUpdate, newMeaning);
 		                            response.put("status", "success");
+		                        } catch (SQLException e) {
+		                            response.put("status", "error");
+		                            response.put("description", "Database error: " + e.getMessage());
 		                        }
 		                    } else {
 		                        response.put("status", "not found");
+		                        response.put("description", "Failed to update word or word not found.");
 		                    }
 		                    logArea.append("Received 'update' request for word: " + wordToUpdate + "\n");
 		                    break;
@@ -209,7 +225,7 @@ public class DictionaryServer {
     	            return; // Exiting the method after sending the error response
     	        }
             out.println(response.toString());
-        } catch (IOException | JSONException | SQLException e) {
+        } catch (IOException | JSONException e) {
             e.printStackTrace();
             logArea.append("Error: " + e.getMessage() + "\n");
         } finally {

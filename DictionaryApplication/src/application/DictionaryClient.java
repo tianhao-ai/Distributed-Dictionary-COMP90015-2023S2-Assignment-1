@@ -45,8 +45,8 @@ public class DictionaryClient {
             JSONObject response = sendRequestToServer(request);
             if (response != null && response.getString("status").equals("success")) {
                 resultArea.append("Found word: " + wordField.getText() + " Meaning: " + response.getString("meaning") + "\n");
-            } else {
-                resultArea.append("Word not found or error occurred.\n");
+            }else {
+            	resultArea.append("Error: " + response.getString("description") + "\n");
             }
         });
 
@@ -60,7 +60,7 @@ public class DictionaryClient {
             if (response != null && response.getString("status").equals("success")) {
                 resultArea.append("Added word: " + wordField.getText() + "\n");
             } else {
-                resultArea.append("Failed to add word or word already exists.\n");
+            	resultArea.append("Error: " + response.getString("description") + "\n");
             }
         });
 
@@ -73,7 +73,7 @@ public class DictionaryClient {
             if (response != null && response.getString("status").equals("success")) {
                 resultArea.append("Removed word: " + wordField.getText() + "\n");
             } else {
-                resultArea.append("Failed to remove word or word not found.\n");
+            	resultArea.append("Error: " + response.getString("description") + "\n");
             }
         });
 
@@ -87,7 +87,7 @@ public class DictionaryClient {
             if (response != null && response.getString("status").equals("success")) {
                 resultArea.append("Updated word: " + wordField.getText() + "\n");
             } else {
-                resultArea.append("Failed to update word or word not found.\n");
+            	resultArea.append("Error: " + response.getString("description") + "\n");
             }
         });
 
