@@ -1,15 +1,16 @@
 package application;
-import org.json.JSONObject;
+import org.json.JSONObject; 
 
 import java.awt.*;
 import java.awt.event.ActionEvent;
+
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 
 public class DictionaryClient {
-	private static String serverAddress;
+    private static String serverAddress;
     private static int serverPort;
 
     public static void main(String[] args) {
@@ -17,82 +18,102 @@ public class DictionaryClient {
             serverAddress = args[0];
             serverPort = Integer.parseInt(args[1]);
         }
-        
+
         Frame frame = new Frame("Dictionary Client");
         Panel panel = new Panel();
-        panel.setLayout(new GridLayout(8, 1));
+        panel.setLayout(new GridLayout(10, 1));
+        
+        Label wordLabel = new Label("Word: "); // Label for word
+        Label meaningLabel = new Label("Meaning: "); // Label for meaning
 
         TextField wordField = new TextField();
-        wordField.setText("Enter Word");
-
         TextField meaningField = new TextField();
-        meaningField.setText("Enter Meaning");
+        
 
         Button searchButton = new Button("Search");
         Button addButton = new Button("Add");
         Button removeButton = new Button("Remove");
         Button updateButton = new Button("Update");
 
-        TextArea resultArea = new TextArea();
+        TextArea resultArea = new TextArea(100, 100);
         resultArea.setEditable(false);
 
         // Event handlers for the buttons
         searchButton.addActionListener((ActionEvent event) -> {
-            JSONObject request = new JSONObject();
-            request.put("action", "search");
-            request.put("word", wordField.getText());
+            if (!wordField.getText().isEmpty()) {
+                JSONObject request = new JSONObject();
+                request.put("action", "search");
+                request.put("word", wordField.getText());
 
-            JSONObject response = sendRequestToServer(request);
-            if (response != null && response.getString("status").equals("success")) {
-                resultArea.append("Found word: " + wordField.getText() + " Meaning: " + response.getString("meaning") + "\n");
-            }else {
-            	resultArea.append("Error: " + response.getString("description") + "\n");
+                JSONObject response = sendRequestToServer(request);
+                if (response != null && response.getString("status").equals("success")) {
+                    resultArea.append("Found word: " + wordField.getText() + " Meaning: " + response.getString("meaning") + "\n");
+                } else {
+                    resultArea.append("Error: " + response.getString("description") + "\n");
+                }
+            } else {
+                resultArea.append("Please enter a word to search.\n");
             }
         });
 
         addButton.addActionListener((ActionEvent event) -> {
-            JSONObject request = new JSONObject();
-            request.put("action", "add");
-            request.put("word", wordField.getText());
-            request.put("meaning", meaningField.getText());
+            if (!wordField.getText().isEmpty() && !meaningField.getText().isEmpty()) {
+                JSONObject request = new JSONObject();
+                request.put("action", "add");
+                request.put("word", wordField.getText());
+                request.put("meaning", meaningField.getText());
 
-            JSONObject response = sendRequestToServer(request);
-            if (response != null && response.getString("status").equals("success")) {
-                resultArea.append("Added word: " + wordField.getText() + "\n");
+                JSONObject response = sendRequestToServer(request);
+                if (response != null && response.getString("status").equals("success")) {
+                    resultArea.append("Added word: " + wordField.getText() + "\n");
+                } else {
+                    resultArea.append("Error: " + response.getString("description") + "\n");
+                }
             } else {
-            	resultArea.append("Error: " + response.getString("description") + "\n");
+                resultArea.append("Please enter both word and meaning to add.\n");
             }
         });
 
         removeButton.addActionListener((ActionEvent event) -> {
-            JSONObject request = new JSONObject();
-            request.put("action", "remove");
-            request.put("word", wordField.getText());
+            if (!wordField.getText().isEmpty()) {
+                JSONObject request = new JSONObject();
+                request.put("action", "remove");
+                request.put("word", wordField.getText());
 
-            JSONObject response = sendRequestToServer(request);
-            if (response != null && response.getString("status").equals("success")) {
-                resultArea.append("Removed word: " + wordField.getText() + "\n");
+                JSONObject response = sendRequestToServer(request);
+                if (response != null && response.getString("status").equals("success")) {
+                    resultArea.append("Removed word: " + wordField.getText() + "\n");
+                } else {
+                    resultArea.append("Error: " + response.getString("description") + "\n");
+                }
             } else {
-            	resultArea.append("Error: " + response.getString("description") + "\n");
+                resultArea.append("Please enter a word to remove.\n");
             }
         });
 
         updateButton.addActionListener((ActionEvent event) -> {
-            JSONObject request = new JSONObject();
-            request.put("action", "update");
-            request.put("word", wordField.getText());
-            request.put("meaning", meaningField.getText());
+            if (!wordField.getText().isEmpty() && !meaningField.getText().isEmpty()) {
+                JSONObject request = new JSONObject();
+                request.put("action", "update");
+                request.put("word", wordField.getText());
+                request.put("meaning", meaningField.getText());
 
-            JSONObject response = sendRequestToServer(request);
-            if (response != null && response.getString("status").equals("success")) {
-                resultArea.append("Updated word: " + wordField.getText() + "\n");
+                JSONObject response = sendRequestToServer(request);
+                if (response != null && response.getString("status").equals("success")) {
+                    resultArea.append("Updated word: " + wordField.getText() + "\n");
+                } else {
+                    resultArea.append("Error: " + response.getString("description") + "\n");
+                }
             } else {
-            	resultArea.append("Error: " + response.getString("description") + "\n");
+                resultArea.append("Please enter both word and meaning to update.\n");
             }
         });
 
-        // Add components to panel
+        panel.setLayout(new GridLayout(12, 1));
+
+        panel.add(wordLabel);
         panel.add(wordField);
+        panel.add(meaningLabel);
         panel.add(meaningField);
         panel.add(searchButton);
         panel.add(addButton);
@@ -101,7 +122,7 @@ public class DictionaryClient {
         panel.add(resultArea);
 
         frame.add(panel);
-        frame.setSize(400, 400);
+        frame.setSize(640, 480);
         frame.setVisible(true);
 
         frame.addWindowListener(new java.awt.event.WindowAdapter() {
@@ -111,6 +132,7 @@ public class DictionaryClient {
             }
         });
     }
+
     private static JSONObject sendRequestToServer(JSONObject request) {
         try (Socket socket = new Socket(serverAddress, serverPort);
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
@@ -121,8 +143,10 @@ public class DictionaryClient {
             String responseStr = in.readLine();
             return new JSONObject(responseStr);
         } catch (Exception e) {
-            e.printStackTrace();
-            return null;
+            JSONObject errorResponse = new JSONObject();
+            errorResponse.put("status", "error");
+            errorResponse.put("description", "Failed to connect to server. Please ensure the server is running.");
+            return errorResponse;
         }
     }
 }

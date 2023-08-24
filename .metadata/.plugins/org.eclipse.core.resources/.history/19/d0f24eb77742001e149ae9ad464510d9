@@ -1,0 +1,477 @@
+package application;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.Queue;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+
+import java.awt.*;
+import java.io.*;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.util.HashMap;
+import java.util.Map;
+
+import java.io.IOException;
+
+import org.json.JSONObject;
+import org.json.JSONException;
+
+public class DictionaryServer {
+	private int numberOfWorkers;
+    private ThreadPool threadPool;
+    private int port;
+    private String dictionaryFilePath;
+    private HashMap<String, String> dictionary = new HashMap<>();
+    private ServerSocket serverSocket;
+    private Label lblCurrentWorkers;
+    private Connection connection;
+    private Label lblAvgResponseTime = new Label("Average Response Time: 0 ms");
+    private long totalResponseTime = 0;
+    private long requestCount = 0;
+    private TextArea logArea;
+
+    public DictionaryServer(String[] args) {
+        if (args.length >= 2) {
+            port = Integer.parseInt(args[0]);
+            dictionaryFilePath = args[1];
+        }
+
+        try {
+            connectToDatabase();
+            loadDictionary();
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.exit(1); // Exit if there's an error connecting to the database or loading the dictionary
+        }
+    }
+
+    public static void main(String[] args) {
+        new DictionaryServer(args).initializeServerGUI();
+    }
+
+    private void connectToDatabase() throws Exception {
+        String url = "jdbc:sqlite:" + dictionaryFilePath;  // SQLite database path determined by dictionaryFilePath
+        connection = DriverManager.getConnection(url);
+
+        // Create the dictionary table if it doesn't exist
+        try (PreparedStatement stmt = connection.prepareStatement(
+            "CREATE TABLE IF NOT EXISTS dictionary (word TEXT PRIMARY KEY, meaning TEXT)")) {
+            stmt.execute();
+        }
+    }
+
+    private void loadDictionary() {
+        try (PreparedStatement stmt = connection.prepareStatement("SELECT word, meaning FROM dictionary");
+             ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                dictionary.put(rs.getString("word"), rs.getString("meaning"));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+ // Start the server logic (like listening for client connections)
+    private void startServer() {
+        new Thread(() -> {
+            try {
+                serverSocket = new ServerSocket(port);
+                logArea.append("Server started on port: " + port + "\n");
+                lblCurrentWorkers.setText("Current Workers: " + numberOfWorkers);
+                while (true) {
+                    Socket clientSocket = serverSocket.accept();
+                    logArea.append("Client connected: " + clientSocket.getInetAddress().getHostAddress() + "\n");
+                    threadPool.submit(() -> handleClientRequest(clientSocket));
+                }
+            } catch (IOException e) {
+                if (serverSocket != null && !serverSocket.isClosed()) {
+                    e.printStackTrace();
+                    logArea.append("Error: " + e.getMessage() + "\n");
+                }
+            }
+        }).start();
+    }
+    private boolean isStringEmptyOrWhitespace(String str) {
+        return str == null || str.trim().isEmpty();
+    }
+    private void handleClientRequest(Socket clientSocket) {
+    	long startTime = System.currentTimeMillis();
+    	try (BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+    	         PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true)) {
+    	        String clientMessage = in.readLine();
+    	        JSONObject response = new JSONObject();
+    	        try {
+    	            JSONObject request = new JSONObject(clientMessage);
+    	            String action = request.getString("action");
+
+    	            if (!request.has("action")) {
+    	                response.put("status", "error");
+    	                response.put("description", "Missing 'action' field in request.");
+    	                out.println(response.toString());
+    	                return;
+    	            }
+		            switch (action) {
+		                case "search":
+		                	if (!request.has("word")) {
+		                        response.put("status", "error");
+		                        response.put("description", "Missing 'word' field in search request.");
+		                        break;
+		                    }
+		                    String wordToSearch = request.getString("word");
+		                    if (isStringEmptyOrWhitespace(wordToSearch)) {
+		                        response.put("status", "error");
+		                        response.put("description", "Word cannot be empty or only whitespace.");
+		                        break;
+		                    }
+		                    // Use the HashMap for search operations for faster lookups
+		                    if (dictionary.containsKey(wordToSearch)) {
+		                        response.put("status", "success");
+		                        response.put("meaning", dictionary.get(wordToSearch));
+		                    } else {
+		                        response.put("status", "not found");
+		                        response.put("description", "Word not found or error occurred.");
+		                    }
+		                    logArea.append("Received 'search' request for word: " + wordToSearch + "\n");
+		                    break;
+		
+		                case "add":
+		                    if (!request.has("word") || !request.has("meaning")) {
+		                        response.put("status", "error");
+		                        response.put("description", "Missing 'word' or 'meaning' field in add request.");
+		                        break;
+		                    }
+		                    String wordToAdd = request.getString("word");
+		                    String meaningToAdd = request.getString("meaning");
+		                    if (isStringEmptyOrWhitespace(wordToAdd) || isStringEmptyOrWhitespace(meaningToAdd)) {
+		                        response.put("status", "error");
+		                        response.put("description", "Word or Meaning cannot be empty or only whitespace.");
+		                        break;
+		                    }
+		                    if (!dictionary.containsKey(wordToAdd)) {
+		                        try (PreparedStatement stmtInsert = connection.prepareStatement("INSERT INTO dictionary(word, meaning) VALUES(?, ?)")) {
+		                            stmtInsert.setString(1, wordToAdd);
+		                            stmtInsert.setString(2, meaningToAdd);
+		                            stmtInsert.execute();
+		                            
+		                            // Only update the HashMap after the database update is successful
+		                            dictionary.put(wordToAdd, meaningToAdd);
+		                            response.put("status", "success");
+		                        } catch (SQLException e) {
+		                            response.put("status", "error");
+		                            response.put("description", "Database error: " + e.getMessage());
+		                        }
+		                    } else {
+		                        response.put("status", "duplicate");
+		                        response.put("description", "Failed to add word or word already exists.");
+		                    }
+		                    logArea.append("Received 'add' request for word: " + wordToAdd + "\n");
+		                    break;
+		
+		                case "remove":
+		                    if (!request.has("word")) {
+		                        response.put("status", "error");
+		                        response.put("description", "Missing 'word' field in remove request.");
+		                        break;
+		                    }
+		                    String wordToRemove = request.getString("word");
+		                    if (isStringEmptyOrWhitespace(wordToRemove)) {
+		                        response.put("status", "error");
+		                        response.put("description", "Word cannot be empty or only whitespace.");
+		                        break;
+		                    }
+		                    if (dictionary.containsKey(wordToRemove)) {
+		                        try (PreparedStatement stmt = connection.prepareStatement("DELETE FROM dictionary WHERE word = ?")) {
+		                            stmt.setString(1, wordToRemove);
+		                            stmt.executeUpdate();
+		                            
+		                            // Only remove from the HashMap after the database deletion is successful
+		                            dictionary.remove(wordToRemove);
+		                            response.put("status", "success");
+		                        } catch (SQLException e) {
+		                            response.put("status", "error");
+		                            response.put("description", "Database error: " + e.getMessage());
+		                        }
+		                    } else {
+		                        response.put("status", "not found");
+		                        response.put("description", "Failed to remove word or word not found.");
+		                    }
+		                    logArea.append("Received 'remove' request for word: " + wordToRemove + "\n");
+		                    break;
+		
+		                case "update":
+		                    if (!request.has("word") || !request.has("meaning")) {
+		                        response.put("status", "error");
+		                        response.put("description", "Missing 'word' or 'meaning' field in update request.");
+		                        break;
+		                    }
+		                    String wordToUpdate = request.getString("word");
+		                    String newMeaning = request.getString("meaning");
+		                    if (isStringEmptyOrWhitespace(wordToUpdate) || isStringEmptyOrWhitespace(newMeaning)) {
+		                        response.put("status", "error");
+		                        response.put("description", "Word or Meaning cannot be empty or only whitespace.");
+		                        break;
+		                    }
+		                    if (dictionary.containsKey(wordToUpdate)) {
+		                        try (PreparedStatement stmt = connection.prepareStatement("UPDATE dictionary SET meaning = ? WHERE word = ?")) {
+		                            stmt.setString(1, newMeaning);
+		                            stmt.setString(2, wordToUpdate);
+		                            stmt.executeUpdate();
+		                            
+		                            // Only update the HashMap after the database update is successful
+		                            dictionary.put(wordToUpdate, newMeaning);
+		                            response.put("status", "success");
+		                        } catch (SQLException e) {
+		                            response.put("status", "error");
+		                            response.put("description", "Database error: " + e.getMessage());
+		                        }
+		                    } else {
+		                        response.put("status", "not found");
+		                        response.put("description", "Failed to update word or word not found.");
+		                    }
+		                    logArea.append("Received 'update' request for word: " + wordToUpdate + "\n");
+		                    break;
+		                default:
+		                    response.put("status", "error");
+		                    response.put("description", "Unknown action: " + action);
+		                    break;
+		            }
+    	        }catch (JSONException e) {
+    	            logArea.append("Error: Invalid JSON received. " + e.getMessage() + "\n");
+    	            response.put("status", "error");
+    	            response.put("description", "Invalid JSON format.");
+    	            out.println(response.toString());
+    	            return; // Exiting the method after sending the error response
+    	        }
+            out.println(response.toString());
+        } catch (IOException | JSONException e) {
+            e.printStackTrace();
+            logArea.append("Error: " + e.getMessage() + "\n");
+        } finally {
+            logArea.append("Client disconnected: " + clientSocket.getInetAddress().getHostAddress() + "\n");
+        }
+        long endTime = System.currentTimeMillis();
+        long responseTime = endTime - startTime;
+
+        totalResponseTime += responseTime;
+        requestCount++;
+        long averageResponseTime = totalResponseTime / requestCount;
+
+        lblAvgResponseTime.setText("Average Response Time: " + averageResponseTime + " ms");
+    }
+
+    private void initializeServerGUI() {
+        int maxWorkers = Runtime.getRuntime().availableProcessors();
+
+        Frame frame = new Frame("Dictionary Server Management");
+
+        Panel serverControl = new Panel();
+        Label lblServerStatus = new Label("Status: Stopped");
+        TextField workerField = new TextField(String.valueOf(maxWorkers));
+        workerField.setColumns(5);
+        Button startButton = new Button("Start Server");
+        Button stopButton = new Button("Stop Server");
+
+        startButton.addActionListener(event -> {
+            int desiredWorkers = Integer.parseInt(workerField.getText());
+
+            if (desiredWorkers > maxWorkers) {
+                logArea.append("Warning: Setting workers greater than available processors might affect performance.\n");
+                logArea.append("Your device's available processors are: "+ maxWorkers + "\n");
+            }
+
+            numberOfWorkers = desiredWorkers;
+            threadPool = new ThreadPool(numberOfWorkers);
+            lblServerStatus.setText("Status: Running");
+            startServer();
+        });
+
+        stopButton.addActionListener(event -> {
+            if (threadPool != null) {
+                threadPool.shutdown();
+                threadPool = null;
+            }
+
+            if (serverSocket != null && !serverSocket.isClosed()) {
+                try {
+                    serverSocket.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            numberOfWorkers = 0;
+            lblCurrentWorkers.setText("Current Workers: " + numberOfWorkers);
+            lblServerStatus.setText("Status: Stopped");
+            logArea.append("Server stopped.\n");
+        });
+        
+        serverControl.add(new Label("Initial Workers:"));
+        serverControl.add(workerField);
+        serverControl.add(startButton);
+        serverControl.add(stopButton);
+        serverControl.add(lblServerStatus);
+        serverControl.add(lblAvgResponseTime);
+        serverControl.setLayout(new GridLayout(3, 2));
+
+        Panel workerControl = new Panel();
+        Button increaseWorkersButton = new Button("Increase Workers");
+        Button decreaseWorkersButton = new Button("Decrease Workers");
+        lblCurrentWorkers = new Label("Current Workers: " + numberOfWorkers);
+
+        increaseWorkersButton.addActionListener(event -> {
+            if (threadPool != null) {
+                if (numberOfWorkers + 1 > maxWorkers) {
+                    logArea.append("Warning: Increasing workers beyond available processors might affect performance.\n");
+                    logArea.append("Your device's available processors are: "+ maxWorkers + "\n");
+                }
+                threadPool.increaseWorkers();
+                numberOfWorkers++;
+                lblCurrentWorkers.setText("Current Workers: " + numberOfWorkers);
+                logArea.append("Increased the number of workers to: " + numberOfWorkers + "\n");
+            } else {
+                logArea.append("Start the server before increasing worker\n");
+            }
+        });
+
+        decreaseWorkersButton.addActionListener(event -> {
+            // TODO: Logic to decrease the number of workers
+            if (threadPool != null && numberOfWorkers > 0 && numberOfWorkers != 1) {
+                threadPool.decreaseWorkers();
+                numberOfWorkers--;
+                lblCurrentWorkers.setText("Current Workers: " + numberOfWorkers);
+                logArea.append("Decreased the number of workers to: " + numberOfWorkers + "\n");
+            }else if(threadPool != null && numberOfWorkers == 1){
+            	logArea.append("Server needs at least 1 worker to work\n");
+            }else {
+            	logArea.append("Start the server before decreasing worker\n");
+            }
+        });
+        
+        workerControl.add(increaseWorkersButton);
+        workerControl.add(decreaseWorkersButton);
+        workerControl.add(lblCurrentWorkers);
+
+        Panel dictionaryDisplay = new Panel();
+        Button showDictionaryButton = new Button("Show Dictionary");
+        TextArea dictionaryArea = new TextArea(5, 50);
+        
+        showDictionaryButton.addActionListener(event -> {
+            StringBuilder content = new StringBuilder();
+            for (Map.Entry<String, String> entry : dictionary.entrySet()) {
+                content.append(entry.getKey()).append(": ").append(entry.getValue()).append("\n");
+            }
+            dictionaryArea.setText(content.toString());
+        });
+        
+        dictionaryArea.setEditable(false);
+        dictionaryDisplay.add(showDictionaryButton);
+        dictionaryDisplay.add(dictionaryArea);
+
+        TextArea logArea = new TextArea(10, 50);
+        logArea.setEditable(false);
+
+        Panel mainPanel = new Panel();
+        mainPanel.setLayout(new GridLayout(4, 1));  // 4 rows, 1 column
+        mainPanel.add(serverControl);
+        mainPanel.add(workerControl);
+        mainPanel.add(dictionaryDisplay);
+        mainPanel.add(logArea);
+
+        frame.add(mainPanel);
+        frame.pack();
+        frame.setVisible(true);
+
+        frame.addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent windowEvent) {
+                System.exit(0);
+            }
+        });
+        this.logArea = logArea;
+    }
+}
+
+class WorkerThread extends Thread {
+    private final Queue<Runnable> taskQueue;
+    private boolean isStopped = false;
+
+    public WorkerThread(Queue<Runnable> taskQueue) {
+        this.taskQueue = taskQueue;
+    }
+
+    @Override
+    public void run() {
+        while (!isStopped) {
+            Runnable task = null;
+            synchronized (taskQueue) {
+                while (taskQueue.isEmpty() && !isStopped) {
+                    try {
+                        taskQueue.wait();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+                }
+                if (!taskQueue.isEmpty()) {
+                    task = taskQueue.poll();
+                }
+            }
+            if (task != null) {
+                task.run();
+            }
+        }
+    }
+
+    public void stopWorker() {
+        isStopped = true;
+        synchronized (taskQueue) {
+            taskQueue.notifyAll();
+        }
+    }
+}
+
+class ThreadPool {
+    private final Queue<Runnable> taskQueue = new LinkedList<>();
+    private final List<WorkerThread> threads;
+
+    public ThreadPool(int poolSize) {
+        threads = new ArrayList<>(poolSize);
+
+        // Initialize and start worker threads
+        for (int i = 0; i < poolSize; i++) {
+            WorkerThread worker = new WorkerThread(taskQueue);
+            threads.add(worker);
+            worker.start();
+        }
+    }
+
+    public void submit(Runnable task) {
+        synchronized (taskQueue) {
+            taskQueue.add(task);
+            taskQueue.notify();
+        }
+    }
+
+    public void shutdown() {
+        for (WorkerThread worker : threads) {
+            worker.stopWorker();
+        }
+    }
+
+    public void increaseWorkers() {
+        WorkerThread worker = new WorkerThread(taskQueue);
+        threads.add(worker);
+        worker.start();
+    }
+
+    public void decreaseWorkers() {
+        if (!threads.isEmpty()) {
+            WorkerThread worker = threads.remove(threads.size() - 1);
+            worker.stopWorker();
+        }
+    }
+}
