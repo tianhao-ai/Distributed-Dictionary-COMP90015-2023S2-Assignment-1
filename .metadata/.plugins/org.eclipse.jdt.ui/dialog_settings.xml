@@ -42,11 +42,11 @@
 		<item key="FatJarPackageWizardPage.ANTSCRIPT_SAVE" value="false"/>
 		<item key="FatJarPackageWizardPage.ANTSCRIPT_LOCATION" value="D:\level9\DS\workspace"/>
 		<item key="FatJarPackageWizardPage.LIBRARY_HANDLING" value="1"/>
-		<item key="FatJarPackageWizardPage.LAUNCH_CONFIGURATION_SELECTION_NAME" value="DictionaryClient (1) - DictionaryApplication"/>
-		<item key="FatJarPackageWizardPage.DESTINATION_PATH_SELECTION" value="D:\level9\DS\DictionaryClient.jar"/>
+		<item key="FatJarPackageWizardPage.LAUNCH_CONFIGURATION_SELECTION_NAME" value="DictionaryServer - DictionaryApplication"/>
+		<item key="FatJarPackageWizardPage.DESTINATION_PATH_SELECTION" value="D:\level9\DS\DictionaryServer.jar"/>
 		<list key="FatJarPackageWizardPage.DESTINATION_NAMES_ID">
-			<item value="D:\level9\DS\DictionaryClient.jar"/>
 			<item value="D:\level9\DS\DictionaryServer.jar"/>
+			<item value="D:\level9\DS\DictionaryClient.jar"/>
 		</list>
 		<list key="FatJarPackageWizardPage.ANTSCRIPT_LOCATION_HISTORY">
 			<item value="D:\level9\DS\workspace.xml"/>
