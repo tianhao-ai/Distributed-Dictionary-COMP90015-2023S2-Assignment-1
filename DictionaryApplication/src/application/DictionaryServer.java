@@ -39,10 +39,14 @@ public class DictionaryServer {
     private boolean serverStartedSuccessfully = false;
 
     public DictionaryServer(String[] args) {
-        if (args.length >= 2) {
-            port = Integer.parseInt(args[0]);
-            dictionaryFilePath = args[1];
+    	if (args.length != 2) { // Check if the number of arguments is exactly 2
+            System.out.println("Error: Invalid number of arguments. Please provide the port number and dictionary file path.\n");
+            System.out.println("Example Usage: java -jar DictionaryServer.jar 8080 dictionary.db");
+            System.exit(1); // Terminate the program
         }
+
+        port = Integer.parseInt(args[0]);
+        dictionaryFilePath = args[1];
 
         try {
             connectToDatabase();
@@ -140,7 +144,7 @@ public class DictionaryServer {
 		                        response.put("meaning", dictionary.get(wordToSearch));
 		                    } else {
 		                        response.put("status", "not found");
-		                        response.put("description", "Word not found or error occurred.");
+		                        response.put("description", "Word "+wordToSearch+" not found or error occurred.");
 		                    }
 		                    logArea.append("Received 'search' request for word: " + wordToSearch + "\n");
 		                    break;
@@ -173,7 +177,7 @@ public class DictionaryServer {
 		                        }
 		                    } else {
 		                        response.put("status", "duplicate");
-		                        response.put("description", "Failed to add word or word already exists.");
+		                        response.put("description", "Word: "+wordToAdd+" Failed to add word or word already exists.");
 		                    }
 		                    logArea.append("Received 'add' request for word: " + wordToAdd + "\n");
 		                    break;
@@ -204,7 +208,7 @@ public class DictionaryServer {
 		                        }
 		                    } else {
 		                        response.put("status", "not found");
-		                        response.put("description", "Failed to remove word or word not found.");
+		                        response.put("description", "Word: "+wordToRemove+" Failed to remove word or word not found.");
 		                    }
 		                    logArea.append("Received 'remove' request for word: " + wordToRemove + "\n");
 		                    break;
@@ -237,7 +241,7 @@ public class DictionaryServer {
 		                        }
 		                    } else {
 		                        response.put("status", "not found");
-		                        response.put("description", "Failed to update word or word not found.");
+		                        response.put("description", "Word: "+wordToUpdate+" Failed to update word or word not found.");
 		                    }
 		                    logArea.append("Received 'update' request for word: " + wordToUpdate + "\n");
 		                    break;

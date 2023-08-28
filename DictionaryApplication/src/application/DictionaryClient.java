@@ -14,14 +14,15 @@ public class DictionaryClient {
     private static int serverPort;
 
     public static void main(String[] args) {
-        if (args.length >= 2) {
-            serverAddress = args[0];
-            serverPort = Integer.parseInt(args[1]);
+        if (args.length != 2) {
+        	System.out.println("Error: Invalid number of arguments. Please provide the server address and port number.\n");
+            System.out.println("Example Usage: java -jar DictionaryClient.jar localhost 8080");
+            System.exit(1); // Terminate the program
         }
-
+        serverAddress = args[0];
+        serverPort = Integer.parseInt(args[1]);
         Frame frame = new Frame("Dictionary Client");
         Panel panel = new Panel();
-        panel.setLayout(new GridLayout(10, 1));
         
         Label wordLabel = new Label("Word: "); // Label for word
         Label meaningLabel = new Label("Meaning: "); // Label for meaning
@@ -35,8 +36,10 @@ public class DictionaryClient {
         Button removeButton = new Button("Remove");
         Button updateButton = new Button("Update");
 
-        TextArea resultArea = new TextArea(100, 100);
+        TextArea resultArea = new TextArea(50, 50);
         resultArea.setEditable(false);
+
+        frame.setSize(800, 600);
 
         // Event handlers for the buttons
         searchButton.addActionListener((ActionEvent event) -> {
@@ -109,7 +112,7 @@ public class DictionaryClient {
             }
         });
 
-        panel.setLayout(new GridLayout(12, 1));
+        panel.setLayout(new GridLayout(5, 1));
 
         panel.add(wordLabel);
         panel.add(wordField);
@@ -122,7 +125,6 @@ public class DictionaryClient {
         panel.add(resultArea);
 
         frame.add(panel);
-        frame.setSize(640, 480);
         frame.setVisible(true);
 
         frame.addWindowListener(new java.awt.event.WindowAdapter() {
