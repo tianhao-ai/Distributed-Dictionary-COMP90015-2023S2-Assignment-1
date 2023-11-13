@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<libraryInfos>
+    <libraryInfo home="/usr/local/Cellar/openjdk@8/1.8.0+322/libexec/openjdk.jdk/Contents/Home" version="1.8.0_322">
+        <bootpath>
+            <entry path="/usr/local/Cellar/openjdk@8/1.8.0+322/libexec/openjdk.jdk/Contents/Home/jre/lib/resources.jar"/>
+            <entry path="/usr/local/Cellar/openjdk@8/1.8.0+322/libexec/openjdk.jdk/Contents/Home/jre/lib/rt.jar"/>
+            <entry path="/usr/local/Cellar/openjdk@8/1.8.0+322/libexec/openjdk.jdk/Contents/Home/jre/lib/sunrsasign.jar"/>
+            <entry path="/usr/local/Cellar/openjdk@8/1.8.0+322/libexec/openjdk.jdk/Contents/Home/jre/lib/jsse.jar"/>
+            <entry path="/usr/local/Cellar/openjdk@8/1.8.0+322/libexec/openjdk.jdk/Contents/Home/jre/lib/jce.jar"/>
+            <entry path="/usr/local/Cellar/openjdk@8/1.8.0+322/libexec/openjdk.jdk/Contents/Home/jre/lib/charsets.jar"/>
+            <entry path="/usr/local/Cellar/openjdk@8/1.8.0+322/libexec/openjdk.jdk/Contents/Home/jre/lib/jfr.jar"/>
+            <entry path="/usr/local/Cellar/openjdk@8/1.8.0+322/libexec/openjdk.jdk/Contents/Home/jre/classes"/>
+        </bootpath>
+        <extensionDirs>
+            <entry path="/Users/tianhao/Library/Java/Extensions"/>
+            <entry path="/usr/local/Cellar/openjdk@8/1.8.0+322/libexec/openjdk.jdk/Contents/Home/jre/lib/ext"/>
+            <entry path="/Library/Java/Extensions"/>
+            <entry path="/Network/Library/Java/Extensions"/>
+            <entry path="/System/Library/Java/Extensions"/>
+            <entry path="/usr/lib/java"/>
+        </extensionDirs>
+        <endorsedDirs>
+            <entry path="/usr/local/Cellar/openjdk@8/1.8.0+322/libexec/openjdk.jdk/Contents/Home/jre/lib/endorsed"/>
+        </endorsedDirs>
+    </libraryInfo>
+    <libraryInfo home="/Library/Java/JavaVirtualMachines/jdk-15.0.1.jdk/Contents/Home" version="15.0.1"/>
+    <libraryInfo home="F:\java" version="20.0.1"/>
+    <libraryInfo home="/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Home" version="1.8.0_271">
+        <bootpath>
+            <entry path="/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Home/lib/resources.jar"/>
+            <entry path="/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Home/lib/rt.jar"/>
+            <entry path="/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Home/lib/sunrsasign.jar"/>
+            <entry path="/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Home/lib/jsse.jar"/>
+            <entry path="/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Home/lib/jce.jar"/>
+            <entry path="/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Home/lib/charsets.jar"/>
+            <entry path="/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Home/lib/jfr.jar"/>
+            <entry path="/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Home/classes"/>
+        </bootpath>
+        <extensionDirs>
+            <entry path="/Users/tianhao/Library/Java/Extensions"/>
+            <entry path="/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Home/lib/ext"/>
+            <entry path="/Library/Java/Extensions"/>
+            <entry path="/Network/Library/Java/Extensions"/>
+            <entry path="/System/Library/Java/Extensions"/>
+            <entry path="/usr/lib/java"/>
+        </extensionDirs>
+        <endorsedDirs>
+            <entry path="/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Home/lib/endorsed"/>
+        </endorsedDirs>
+    </libraryInfo>
+    <libraryInfo home="/Users/tianhao/Library/Java/JavaVirtualMachines/corretto-17.0.6/Contents/Home" version="17.0.6"/>
+    <libraryInfo home="/Users/tianhao/Library/Java/JavaVirtualMachines/openjdk-16.0.2/Contents/Home" version="16.0.2"/>
+</libraryInfos>
