@@ -19,4 +19,4 @@ Key highlights of this project:
 
 ## Acknowledgements
 
-This program was created as a project for COMP90015 Distributed Systems at the University of Melbourne. I would like to express my gratitude to the course instructors and peers who provided valuable insights and feedback throughout the development of this project.
+This program was created as a project for COMP90015 Distributed Systems at the University of Melbourne.
