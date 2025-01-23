@@ -126,6 +126,7 @@ public class DictionaryServer {
     	                out.println(response.toString());
     	                return;
     	            }
+			synchronized (dictionary) {
 		            switch (action) {
 		                case "search":
 		                	if (!request.has("word")) {
@@ -251,6 +252,7 @@ public class DictionaryServer {
 		                    response.put("description", "Unknown action: " + action);
 		                    break;
 		            }
+			}
     	        }catch (JSONException e) {
     	            logArea.append("Error: Invalid JSON received. " + e.getMessage() + "\n");
     	            response.put("status", "error");
